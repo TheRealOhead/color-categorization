@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Color Categorization</title>
+		<style>
+			body {
+				color: white;
+			}
+
+			.panel {
+				width: 50vw;
+				height: 100vh;
+				position: fixed;
+
+				top: 0;
+			}
+
+			#panel-left {
+				left: 0;
+			}
+
+			#panel-right {
+				background-color: #222;
+
+				right: 0;
+			}
+
+			#data-display {
+				width: 100%;
+				height: 50%;
+			}
+
+			.color-choice {
+				width: 9vh;
+				height: 9vh;
+
+				border: 2px solid rgba(255, 255, 255, .2);
+
+				margin: 0;
+			}
+
+			.color-choice:active {
+				border: 2px solid rgba(0, 0, 0, .2);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="panel" id="panel-left">
+			<div id="choices">
+			</div>
+		</div>
+		<div class="panel" id="panel-right">
+			<canvas id="data-display" width="360" height="100"></canvas>
+			Colors categorized: <span id="colors-done"></span><br>
+			Render: <div id="data-controls"></div>
+		</div>
+		<script src="./octTree.js"></script>
+		<script>
+
+			const sphericalColorSpace = new Cube(new Vec3(-1, -1, -1), 2, 32, false);
+
+			const π = Math.PI;
+
+			let colorsDone = 0;
+
+			class Vec2 {
+				x = 0;
+				y = 0;
+				constructor(x, y) {
+					this.x = x;
+					this.y = y;
+				}
+			}
+
+			const pointToColorChoiceIndex = new Map()
+
+			const colorChoices = [
+				'red',
+				'orange',
+				'yellow',
+				'green',
+				'blue',
+				'purple',
+				'pink',
+				'SaddleBrown',
+				'white',
+				'black'
+			];
+
+			let currentColor = null;
+
+			function hueLuminanceToSurfaceOfSphere(vec2) {
+				const θa = vec2.x * π / 180;
+				const θb = vec2.y * π / 100;
+				
+				return new Vec3(
+					Math.cos(θa) * Math.sin(θb),
+					Math.sin(θa) * Math.sin(θb),
+					Math.cos(θb)
+				);
+			}
+
+			function generateNewColor() {
+				currentColor = new Vec2(
+					Math.random() * 360,
+					Math.acos(Math.random() * 2 - 1) / π * 100
+				);
+
+				document.getElementById('panel-left').style.backgroundColor = `hsl(${currentColor.x}deg, 100%, ${currentColor.y}%)`
+			}
+
+			function choose(colorString) {
+				colorsDone++;
+				document.getElementById('colors-done').innerHTML = colorsDone;
+				pointToColorChoiceIndex.set(currentColor, colorChoices.indexOf(colorString));
+				sphericalColorSpace.add(new DataPoint(hueLuminanceToSurfaceOfSphere(currentColor), colorChoices.indexOf(colorString)))
+				generateNewColor();
+			}
+
+			document.addEventListener("click", function(e){
+		  		const target = e.target.closest(".color-choice");
+		  		
+		  		if (target) {
+		  			choose(target.id);
+				}
+			    
+			});
+		
+			// Add color buttons
+			for (color of colorChoices) {
+				let button = document.createElement('button');
+
+				//button.style.backgroundColor = color;
+				button.classList.add('color-choice');
+				button.id = color;
+				const text = (c=>c == 'SaddleBrown' ? 'brown' : c)(color);
+				button.innerHTML = text.substr(0, 1).toUpperCase() + text.substr(1);
+
+				document.getElementById('choices').appendChild(button);
+				document.getElementById('choices').appendChild(document.createElement('br'));
+			}
+
+			generateNewColor();
+
+
+
+
+
+
+
+			// Data controls
+			let dataMode = 0;
+			let i = 0;
+			let buttonDataArray = [
+				[
+					'Hue-Luminence',
+					(x, y) => {
+						return `hsl(${x}deg, 100%, ${y}%)`
+					}
+				],
+
+				[
+					'Your Choices',
+					(x, y) => {
+
+						const myPos = hueLuminanceToSurfaceOfSphere(new Vec2(x, y));
+
+						
+						/*
+						let minDist = Infinity;
+						let minPos = null;
+
+						pointToColorChoiceIndex.keys().forEach(cartesianPos => {
+							const otherPos = hueLuminanceToSurfaceOfSphere(cartesianPos);
+							const lazyDist = (myPos.x - otherPos.x)**2 + (myPos.y - otherPos.y)**2 + (myPos.z - otherPos.z)**2;
+							if (lazyDist < minDist) {
+								minDist = lazyDist;
+								minPos = cartesianPos
+							}
+						});
+
+						return colorChoices[pointToColorChoiceIndex.get(minPos)];
+						*/
+
+						const dataPoint = sphericalColorSpace.findClosestDataPoint(myPos);
+
+						return colorChoices[dataPoint.data];
+
+					}
+				],
+
+				[
+					'Overlay',
+					(x, y) => {
+						return `color-mix(in srgb, ${buttonDataArray[0][1](x, y)}, ${buttonDataArray[1][1](x, y)})`;
+					}
+				],
+
+				[
+					'Outline',
+					(x, y) => {
+						const neighbors = [
+							buttonDataArray[1][1](x + 1, y),
+							buttonDataArray[1][1](x - 1, y),
+							buttonDataArray[1][1](x, y + 1),
+							buttonDataArray[1][1](x, y - 1)
+						];
+						const meColor = buttonDataArray[1][1](x, y);
+						let border = false;
+						neighbors.forEach(n => {
+							if (n != meColor) {
+								border = true;
+							}
+						});
+
+						return border ? meColor : buttonDataArray[0][1](x, y);
+					}
+				]
+			];
+
+			buttonDataArray.forEach(buttonData => {
+				document.getElementById('data-controls').innerHTML +=
+				`<button onclick="dataMode=${i};redrawData()">${buttonData[0]}</button>`;
+				i++;
+			});
+
+			function redrawData() {
+				const canvas = document.getElementById('data-display');
+				canvas.width = canvas.getBoundingClientRect().width;
+				canvas.height = canvas.getBoundingClientRect().height;
+				const ctx = canvas.getContext('2d');
+				const func = buttonDataArray[dataMode][1];
+
+				const startTime = new Date().getTime();
+				for (let y = 0; y < canvas.height; y++) {
+					for (let x = 0; x < canvas.width; x++) {
+						ctx.fillStyle = func(x / (canvas.width / 360), y / (canvas.height / 100));
+						ctx.fillRect(x, y, 1, 1);
+					}	
+				}
+				//alert(`Took ${new Date().getTime() - startTime}ms to render`)
+			}
+			redrawData();
+
+		</script>
+	</body>
+</html>
