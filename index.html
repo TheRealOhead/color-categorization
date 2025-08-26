@@ -5,6 +5,10 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>Color Categorization</title>
 		<style>
+			* {
+				font-family: monospace;
+			}
+
 			body {
 				color: white;
 			}
@@ -57,6 +61,15 @@
 			Colors categorized: <span id="colors-done"></span><br>
 			Render: <div id="data-controls"></div><br>
 			Data: <button onclick="exportDataButton()">Export</button><button onclick="importDataButton()">Import</button><textarea id="data"></textarea>
+			<hr>
+			Click the button on the left that you think most closely matches the color shown.
+			You may press the "UNDO" button to take back your last color.
+			<br><br>
+			The "Outline" render button shows an overlay of your choices over the hue-luminance scale.
+			The borders may look distorted, but that's because the points are actually on the surface of a sphere and are being projected onto a rectangle, just like a world map.
+			<br><br>
+			If you'd like to share your data with me, click the "export" button and use <a href="https://forms.gle/yhC1MrqeVh1pCkCUA">this form</a>.
+			I'd really appreciate it!
 		</div>
 		<script src="./octTree.js"></script>
 		<script>
