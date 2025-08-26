@@ -50,20 +50,27 @@
 		<div class="panel" id="panel-left">
 			<div id="choices">
 			</div>
+			<button onclick="undo()">UNDO</button>
 		</div>
 		<div class="panel" id="panel-right">
 			<canvas id="data-display" width="360" height="100"></canvas>
 			Colors categorized: <span id="colors-done"></span><br>
-			Render: <div id="data-controls"></div>
+			Render: <div id="data-controls"></div><br>
+			Data: <button onclick="exportDataButton()">Export</button><button onclick="importDataButton()">Import</button><textarea id="data"></textarea>
 		</div>
 		<script src="./octTree.js"></script>
 		<script>
 
-			const sphericalColorSpace = new Cube(new Vec3(-1, -1, -1), 2, 32, false);
+			let sphericalColorSpace;
+			let pointToColorChoiceIndex;
+
+			function initialize() {
+				sphericalColorSpace = new Cube(new Vec3(-1, -1, -1), 2, 32, false);
+				pointToColorChoiceIndex = new Map();
+			}
+			initialize();
 
 			const π = Math.PI;
-
-			let colorsDone = 0;
 
 			class Vec2 {
 				x = 0;
@@ -74,7 +81,7 @@
 				}
 			}
 
-			const pointToColorChoiceIndex = new Map()
+			
 
 			const colorChoices = [
 				'red',
@@ -102,20 +109,23 @@
 				);
 			}
 
+			function updateColor() {
+				document.getElementById('panel-left').style.backgroundColor = `hsl(${currentColor.x}deg, 100%, ${currentColor.y}%)`
+			}
+
 			function generateNewColor() {
 				currentColor = new Vec2(
 					Math.random() * 360,
 					Math.acos(Math.random() * 2 - 1) / π * 100
 				);
 
-				document.getElementById('panel-left').style.backgroundColor = `hsl(${currentColor.x}deg, 100%, ${currentColor.y}%)`
+				updateColor();
 			}
 
 			function choose(colorString) {
-				colorsDone++;
-				document.getElementById('colors-done').innerHTML = colorsDone;
 				pointToColorChoiceIndex.set(currentColor, colorChoices.indexOf(colorString));
 				sphericalColorSpace.add(new DataPoint(hueLuminanceToSurfaceOfSphere(currentColor), colorChoices.indexOf(colorString)))
+				document.getElementById('colors-done').innerHTML = pointToColorChoiceIndex.size;
 				generateNewColor();
 			}
 
@@ -155,7 +165,7 @@
 			let i = 0;
 			let buttonDataArray = [
 				[
-					'Hue-Luminence',
+					'Hue-Luminance',
 					(x, y) => {
 						return `hsl(${x}deg, 100%, ${y}%)`
 					}
@@ -188,13 +198,6 @@
 
 						return colorChoices[dataPoint.data];
 
-					}
-				],
-
-				[
-					'Overlay',
-					(x, y) => {
-						return `color-mix(in srgb, ${buttonDataArray[0][1](x, y)}, ${buttonDataArray[1][1](x, y)})`;
 					}
 				],
 
@@ -240,9 +243,47 @@
 						ctx.fillRect(x, y, 1, 1);
 					}	
 				}
-				//alert(`Took ${new Date().getTime() - startTime}ms to render`)
 			}
 			redrawData();
+
+
+			function exportData() {
+				let data = '';
+				pointToColorChoiceIndex.keys().forEach(point => {
+					data += `${Math.floor(point.x * 1000) / 1000},${Math.floor(point.y * 1000) / 1000},${pointToColorChoiceIndex.get(point)};`;
+				});
+				return data;
+			}
+
+			function importData(data) {
+				initialize();
+
+				data.split(';').forEach(dataPoint => {
+					if (!dataPoint) return;
+					dataPoint = dataPoint.split(',');
+					currentColor = new Vec2(parseFloat(dataPoint[0]), parseFloat(dataPoint[1]));
+					choose(colorChoices[parseInt(dataPoint[2])]);
+				});
+			}
+
+			function exportDataButton() {
+				document.getElementById('data').value = exportData();
+			}
+
+			function importDataButton() {
+				importData(document.getElementById('data').value);
+			}
+
+
+			function undo() {
+				const data = exportData().split(';');
+				if (data.length < 2) return;
+				data.pop();
+				let dataPointToUndo = data.pop().split(',');
+				importData(data.join(';'));
+				currentColor = new Vec2(parseFloat(dataPointToUndo[0]), parseFloat(dataPointToUndo[1]));
+				updateColor();
+			}
 
 		</script>
 	</body>
